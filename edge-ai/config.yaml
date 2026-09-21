@@ -1,0 +1,64 @@
+# SIH26124 - Edge AI configuration
+# One config per camera/edge node. Duplicate this file per deployment site.
+
+device:
+  id: "EDGE-NODE-01"
+  location_name: "MG Road (Near Central Station)"
+  latitude: 22.5726
+  longitude: 88.3639
+  route_id: "ROUTE-12"
+
+video_source:
+  # 0 for local webcam, rtsp://... for IP camera, or path to a video file for testing
+  uri: "rtsp://admin:password@192.168.1.50:554/stream1"
+  target_fps: 10          # sample every Nth frame instead of processing all frames
+  frame_width: 1280
+  frame_height: 720
+
+models:
+  pothole_defect: "models/pothole_yolov8n.pt"
+  vehicle: "models/yolov8n.pt"          # COCO-pretrained, filtered to vehicle classes
+  pedestrian: "models/yolov8n.pt"       # same weights, filtered to 'person' class
+  anpr_detector: "models/plate_yolov8n.pt"
+  confidence_threshold: 0.45
+  device: "cpu"            # "cuda:0" on Jetson/GPU edge boxes
+
+waterlogging:
+  # heuristic detector thresholds (no dedicated model required)
+  reflectivity_threshold: 0.62
+  min_region_area_px: 4000
+
+incident:
+  rash_driving_speed_kmph: 60
+  hit_and_run_gap_frames: 5       # frames a tracked vehicle can vanish near a pedestrian before flagging
+  stall_seconds_threshold: 90     # vehicle stationary mid-lane longer than this = incident
+
+tracking:
+  max_age: 30
+  n_init: 3
+  max_cosine_distance: 0.3
+
+anpr:
+  min_confidence: 0.55
+  languages: ["en"]
+
+output:
+  local_buffer_dir: "buffer/"          # holds detections if connectivity drops
+  save_annotated_frames: false
+  jpeg_quality: 80
+
+transport:
+  mode: "mqtt"                         # "mqtt" or "http"
+  mqtt:
+    broker_host: "broker.internal"
+    broker_port: 1883
+    topic_detections: "sih26124/detections"
+    topic_incidents: "sih26124/incidents"
+    topic_heartbeat: "sih26124/heartbeat"
+  http:
+    ingest_url: "https://api.sih26124.local/v1/ingest"
+    api_key_env_var: "EDGE_API_KEY"
+
+logging:
+  level: "INFO"
+  log_dir: "logs/"
